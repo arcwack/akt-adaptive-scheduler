@@ -44,12 +44,6 @@ export default function QuantumPanel({ processes, config }: Props) {
   }
 
   const dynamic = rows.find((r) => r.dynamic)
-  const bestFixed = rows
-    .filter((r) => !r.dynamic)
-    .reduce<QuantumRow | null>(
-      (best, r) => (best === null || r.avg_waiting < best.avg_waiting ? r : best),
-      null,
-    )
 
   return (
     <Panel
@@ -68,7 +62,7 @@ export default function QuantumPanel({ processes, config }: Props) {
             type="button"
             onClick={run}
             disabled={loading}
-            className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
+            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium hover:bg-surface-muted disabled:opacity-50"
           >
             {loading ? 'Running…' : 'Run'}
           </button>
@@ -79,14 +73,14 @@ export default function QuantumPanel({ processes, config }: Props) {
         <p className="mb-3 whitespace-pre-line text-sm text-red-600">{error}</p>
       )}
       {rows.length === 0 && !error ? (
-        <p className="py-8 text-center text-sm text-neutral-400">
+        <p className="py-8 text-center text-sm text-subtle">
           Compare fixed quanta (2, 4, 8 ms) against the dynamic median-based quantum.
         </p>
       ) : (
         <>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+              <tr className="border-b border-line text-left text-xs text-muted">
                 <th className="px-3 py-2 font-medium">Quantum</th>
                 {COLUMNS.map((c) => (
                   <th key={c.label} className="px-3 py-2 text-right font-medium">
@@ -101,8 +95,8 @@ export default function QuantumPanel({ processes, config }: Props) {
                   key={r.label}
                   className={
                     r.dynamic
-                      ? 'border-b border-neutral-100 bg-accent-soft font-medium last:border-0'
-                      : 'border-b border-neutral-100 last:border-0'
+                      ? 'border-b border-line-soft bg-accent-soft font-medium last:border-0'
+                      : 'border-b border-line-soft last:border-0'
                   }
                 >
                   <td className="px-3 py-2">{r.label}</td>
@@ -115,15 +109,30 @@ export default function QuantumPanel({ processes, config }: Props) {
               ))}
             </tbody>
           </table>
-          {dynamic && bestFixed && (
-            <p className="mt-2 text-xs text-neutral-500">
-              {dynamic.avg_waiting <= bestFixed.avg_waiting
-                ? 'Dynamic quantum matches or beats the best fixed quantum on this workload.'
-                : `A fixed quantum of ${bestFixed.label.replace('fixed ', '')} beats the dynamic quantum here (reported honestly).`}
+          {dynamic && (
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              {verdict(rows, dynamic)}
             </p>
           )}
         </>
       )}
     </Panel>
   )
+}
+
+const COMPARED = [
+  { label: 'waiting', get: (r: QuantumRow) => r.avg_waiting, int: false },
+  { label: 'response', get: (r: QuantumRow) => r.avg_response, int: false },
+  { label: 'context switches', get: (r: QuantumRow) => r.context_switches, int: true },
+]
+
+function verdict(rows: QuantumRow[], dynamic: QuantumRow): string {
+  const fixed = rows.filter((r) => !r.dynamic)
+  const parts = COMPARED.map((m) => {
+    const best = Math.min(...fixed.map(m.get))
+    const dyn = m.get(dynamic)
+    const fmt = (v: number) => (m.int ? String(v) : v.toFixed(2))
+    return `${m.label} ${dyn <= best ? 'dynamic wins' : 'fixed wins'} (${fmt(dyn)} vs ${fmt(best)})`
+  })
+  return `Dynamic vs best fixed quantum — ${parts.join('; ')}.`
 }

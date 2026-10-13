@@ -11,8 +11,6 @@ const PALETTE = [
   '#0f766e',
 ]
 
-export const IDLE_COLOR = '#e5e7eb'
-
 export function colorMap(pids: string[]): Record<string, string> {
   const map: Record<string, string> = {}
   pids.forEach((pid, i) => {

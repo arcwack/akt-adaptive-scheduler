@@ -24,10 +24,10 @@ function stats(m: Metrics): Stat[] {
 
 export default function MetricsGrid({ metrics }: Props) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-neutral-200 bg-neutral-200 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
       {stats(metrics).map((s) => (
-        <div key={s.label} className="bg-white px-4 py-3">
-          <div className="text-xs text-neutral-500">{s.label}</div>
+        <div key={s.label} className="bg-surface px-4 py-3">
+          <div className="text-xs text-muted">{s.label}</div>
           <div className="mt-0.5 text-lg font-semibold tabular-nums">
             {s.value}
           </div>

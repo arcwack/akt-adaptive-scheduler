@@ -5,12 +5,14 @@ interface Props {
 }
 
 const W = 480
-const H = 210
-const PAD = { top: 16, right: 18, bottom: 34, left: 40 }
+const H = 200
+const PAD = { top: 24, right: 18, bottom: 30, left: 40 }
 const PLOT_W = W - PAD.left - PAD.right
 const PLOT_H = H - PAD.top - PAD.bottom
-const SWITCH_COLOR = '#2563eb'
-const WAIT_COLOR = '#d97706'
+const SWITCH_COLOR = 'var(--accent)'
+const WAIT_COLOR = '#f59e0b'
+const LINE_COLOR = 'var(--line)'
+const AXIS_COLOR = 'var(--muted)'
 
 export default function SweepChart({ rows }: Props) {
   if (rows.length === 0) {
@@ -25,9 +27,7 @@ export default function SweepChart({ rows }: Props) {
   const barHeight = (v: number) => (v / maxSwitches) * PLOT_H
   const waitY = (v: number) => PAD.top + PLOT_H - (v / maxWait) * PLOT_H
   const centerX = (i: number) => PAD.left + band * i + band / 2
-  const waitPoints = rows
-    .map((r, i) => `${centerX(i)},${waitY(r.avg_waiting)}`)
-    .join(' ')
+  const waitPoints = rows.map((r, i) => `${centerX(i)},${waitY(r.avg_waiting)}`).join(' ')
 
   return (
     <div className="space-y-2">
@@ -44,29 +44,10 @@ export default function SweepChart({ rows }: Props) {
             x2={W - PAD.right}
             y1={PAD.top + PLOT_H * f}
             y2={PAD.top + PLOT_H * f}
-            stroke="#e5e7eb"
+            stroke={LINE_COLOR}
             strokeWidth={1}
           />
         ))}
-
-        <text
-          x={PAD.left}
-          y={PAD.top - 4}
-          fontSize={9}
-          fill={SWITCH_COLOR}
-          textAnchor="start"
-        >
-          algorithm switches
-        </text>
-        <text
-          x={W - PAD.right}
-          y={PAD.top - 4}
-          fontSize={9}
-          fill={WAIT_COLOR}
-          textAnchor="end"
-        >
-          avg waiting (ms)
-        </text>
 
         {rows.map((r, i) => {
           const x = centerX(i) - barW / 2
@@ -94,7 +75,7 @@ export default function SweepChart({ rows }: Props) {
                 x={centerX(i)}
                 y={H - PAD.bottom + 16}
                 fontSize={11}
-                fill="#525252"
+                fill={AXIS_COLOR}
                 textAnchor="middle"
               >
                 {r.cooldown} ms
@@ -103,12 +84,7 @@ export default function SweepChart({ rows }: Props) {
           )
         })}
 
-        <polyline
-          points={waitPoints}
-          fill="none"
-          stroke={WAIT_COLOR}
-          strokeWidth={2}
-        />
+        <polyline points={waitPoints} fill="none" stroke={WAIT_COLOR} strokeWidth={2} />
         {rows.map((r, i) => (
           <g key={`w-${r.cooldown}`}>
             <circle cx={centerX(i)} cy={waitY(r.avg_waiting)} r={3.5} fill={WAIT_COLOR} />
@@ -124,6 +100,17 @@ export default function SweepChart({ rows }: Props) {
           </g>
         ))}
       </svg>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SWITCH_COLOR }} />
+          Algorithm switches
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3.5 rounded-full" style={{ backgroundColor: WAIT_COLOR }} />
+          Avg waiting (ms)
+        </span>
+      </div>
     </div>
   )
 }

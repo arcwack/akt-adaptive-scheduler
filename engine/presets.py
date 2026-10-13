@@ -19,6 +19,14 @@ def _p(pid: str, arrival: int, burst: int, priority: int = 3) -> Process:
     return Process(pid, arrival, burst, priority)
 
 
+def _scalability_workload(count: int = 50) -> list[Process]:
+    """A deterministic mixed workload for the 50-process scalability check."""
+    return [
+        _p(f"P{i + 1}", arrival=i // 5, burst=1 + (i % 10))
+        for i in range(count)
+    ]
+
+
 PRESETS: list[Preset] = [
     Preset(
         "Thrashing (mixed short+long)",
@@ -75,11 +83,24 @@ PRESETS: list[Preset] = [
         ],
     ),
     Preset(
+        "CV near threshold",
+        use_priority=False,
+        processes=[
+            _p("P1", 0, 4), _p("P2", 0, 6), _p("P3", 1, 3), _p("P4", 2, 8),
+            _p("P5", 3, 4), _p("P6", 4, 7), _p("P7", 5, 5), _p("P8", 6, 6),
+        ],
+    ),
+    Preset(
         "Classic textbook",
         processes=[
             _p("P1", 0, 8, 2), _p("P2", 1, 4, 4),
             _p("P3", 2, 9, 1), _p("P4", 3, 5, 3),
         ],
+    ),
+    Preset(
+        "Scalability (50 jobs)",
+        use_priority=False,
+        processes=_scalability_workload(50),
     ),
 ]
 

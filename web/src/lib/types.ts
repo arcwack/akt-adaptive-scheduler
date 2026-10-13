@@ -104,6 +104,25 @@ export interface Preset {
   processes: ProcessInput[]
 }
 
+export interface MatrixRow {
+  workload: string
+  cells: Record<string, Metrics>
+}
+
+export interface MatrixResult {
+  algorithms: string[]
+  rows: MatrixRow[]
+}
+
+export interface RandomBenchmarkResult {
+  count: number
+  seed: number
+  algorithms: string[]
+  metrics: Record<string, 'min' | 'max'>
+  means: Record<string, Metrics>
+  adaptive_best: Record<string, number>
+}
+
 export const ALGORITHMS: { key: string; label: string }[] = [
   { key: 'adaptive', label: 'Adaptive' },
   { key: 'fcfs', label: 'FCFS' },
@@ -112,6 +131,10 @@ export const ALGORITHMS: { key: string; label: string }[] = [
   { key: 'rr', label: 'Round Robin' },
   { key: 'priority', label: 'Priority' },
 ]
+
+export function algorithmLabel(key: string): string {
+  return ALGORITHMS.find((a) => a.key === key)?.label ?? key
+}
 
 export const DEFAULT_CONFIG: Config = {
   critical_priority: 4,

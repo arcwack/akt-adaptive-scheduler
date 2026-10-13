@@ -1,3 +1,5 @@
+import { Plus, X } from 'lucide-react'
+
 import type { ProcessInput } from '../lib/types'
 
 interface Props {
@@ -7,7 +9,7 @@ interface Props {
 }
 
 const inputClass =
-  'w-full rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-accent focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-md border border-line bg-surface px-2 py-1 text-sm tabular-nums outline-none focus:border-accent focus:ring-2 focus:ring-accent/20'
 
 function toInt(raw: string, min: number, max: number, prev: number): number {
   if (raw.trim() === '') return prev
@@ -38,7 +40,7 @@ export default function ProcessTable({ processes, onChange, usePriority }: Props
 
   return (
     <div className="space-y-2">
-      <div className={`${grid} text-xs font-medium text-neutral-500`}>
+      <div className={`${grid} text-xs font-medium text-muted`}>
         <span>ID</span>
         <span>Arrival</span>
         <span>Burst</span>
@@ -89,18 +91,19 @@ export default function ProcessTable({ processes, onChange, usePriority }: Props
           <button
             type="button"
             onClick={() => remove(i)}
-            className="rounded-md px-2 py-1 text-sm text-neutral-400 hover:bg-neutral-100 hover:text-red-600"
+            className="rounded-md p-1.5 text-subtle transition-colors hover:bg-surface-muted hover:text-red-600"
             aria-label={`Remove ${p.pid}`}
           >
-            ×
+            <X size={16} strokeWidth={1.75} />
           </button>
         </div>
       ))}
       <button
         type="button"
         onClick={add}
-        className="w-full rounded-md border border-dashed border-neutral-300 py-1.5 text-sm text-neutral-500 hover:border-accent hover:text-accent"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
       >
+        <Plus size={15} strokeWidth={1.75} />
         Add process
       </button>
     </div>

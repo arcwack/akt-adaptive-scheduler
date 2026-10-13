@@ -64,6 +64,22 @@ def test_quantum_sweep_shape():
     assert rows[-1]["label"] == "dynamic"
 
 
+def test_benchmark_matrix_endpoint():
+    body = client.post("/api/benchmark/matrix", json={}).json()
+    assert len(body["rows"]) == 6
+    assert "adaptive" in body["algorithms"]
+
+
+def test_benchmark_random_endpoint():
+    body = client.post(
+        "/api/benchmark/random", json={"count": 10, "seed": 42}
+    ).json()
+    assert body["count"] == 10
+    assert body["seed"] == 42
+    assert "adaptive" in body["means"]
+    assert "avg_waiting" in body["adaptive_best"]
+
+
 @pytest.mark.skipif(not DIST.is_dir(), reason="dashboard not built")
 def test_dashboard_is_served():
     res = client.get("/")

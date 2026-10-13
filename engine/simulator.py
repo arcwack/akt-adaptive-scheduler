@@ -27,10 +27,12 @@ class Simulator:
         processes: list[Process],
         policy: Policy,
         config: SimConfig | None = None,
+        record_frames: bool = True,
     ) -> None:
         self.processes = processes
         self.policy = policy
         self.config = config or SimConfig()
+        self.record_frames = record_frames
 
     def run(self) -> RunResult:
         states = [ProcessState(p) for p in self.processes]
@@ -82,7 +84,7 @@ class Simulator:
 
             if running is None and not ready:
                 timeline.append(TimelineSlice(t, t + 1, None, current_key))
-                frames.append(self._snap(t, None, ready, current_key))
+                self._record(frames, t, None, ready, current_key)
                 t += 1
                 continue
 
@@ -90,7 +92,7 @@ class Simulator:
             chosen = algorithm.pick(ctx)
             if chosen is None:
                 timeline.append(TimelineSlice(t, t + 1, None, current_key))
-                frames.append(self._snap(t, None, ready, current_key))
+                self._record(frames, t, None, ready, current_key)
                 t += 1
                 continue
 
@@ -107,7 +109,7 @@ class Simulator:
 
             if running.first_run is None:
                 running.first_run = t
-            frames.append(self._snap(t, running, ready, current_key))
+            self._record(frames, t, running, ready, current_key)
             running.remaining -= 1
             for s in ready:
                 s.waited += 1
@@ -148,6 +150,17 @@ class Simulator:
             remaining=remaining,
         )
 
+    def _record(
+        self,
+        frames: list[Frame],
+        t: int,
+        running: ProcessState | None,
+        ready: list[ProcessState],
+        key: str,
+    ) -> None:
+        if self.record_frames:
+            frames.append(self._snap(t, running, ready, key))
+
     @staticmethod
     def _release(
         states: list[ProcessState], ready: list[ProcessState], t: int
@@ -171,7 +184,7 @@ class Simulator:
             for s in ready:
                 s.waited += 1
             timeline.append(TimelineSlice(t, t + 1, None, algorithm_key))
-            frames.append(self._snap(t, None, ready, algorithm_key))
+            self._record(frames, t, None, ready, algorithm_key)
             t += 1
             self._release(states, ready, t)
         return t
@@ -181,17 +194,19 @@ def simulate(
     processes: list[Process],
     algorithm_key: str,
     config: SimConfig | None = None,
+    record_frames: bool = True,
 ) -> RunResult:
     """Run one fixed algorithm over a workload."""
     policy = FixedPolicy(algorithm_key, ALGORITHM_LABELS.get(algorithm_key, algorithm_key))
-    return Simulator(processes, policy, config).run()
+    return Simulator(processes, policy, config, record_frames).run()
 
 
 def simulate_adaptive(
     processes: list[Process],
     config: SimConfig | None = None,
+    record_frames: bool = True,
 ) -> RunResult:
     """Run the AKT-Arbiter adaptive scheduler over a workload."""
     from .arbiter import AKTArbiter
 
-    return Simulator(processes, AKTArbiter(config), config).run()
+    return Simulator(processes, AKTArbiter(config), config, record_frames).run()

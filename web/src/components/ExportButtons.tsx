@@ -9,7 +9,7 @@ interface Props {
 }
 
 const buttonClass =
-  'rounded-md border border-neutral-200 px-2 py-1 text-xs font-medium hover:bg-neutral-50 disabled:opacity-40'
+  'rounded-md border border-line px-2 py-1 text-xs font-medium hover:bg-surface-muted disabled:opacity-40'
 
 export default function ExportButtons({
   basename,

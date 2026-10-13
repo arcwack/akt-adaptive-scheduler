@@ -1,6 +1,8 @@
+import { Cpu, GitCompare, Moon, Play, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import ComparisonTable, { type ComparisonRow } from './components/ComparisonTable'
+import BenchmarkPanel from './components/BenchmarkPanel'
 import DecisionLog from './components/DecisionLog'
 import ExportButtons from './components/ExportButtons'
 import Gantt from './components/Gantt'
@@ -17,12 +19,14 @@ import {
   ALGORITHMS,
   DEFAULT_CONFIG,
   DEMO_PROCESSES,
+  algorithmLabel,
   type Config,
   type Preset,
   type ProcessInput,
   type RunResult,
 } from './lib/types'
 import { useReplay } from './lib/useReplay'
+import { useTheme } from './lib/useTheme'
 
 const COMPARISON_COLUMNS = [
   { key: 'algorithm', label: 'algorithm' },
@@ -57,6 +61,8 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
+  const [runId, setRunId] = useState(0)
+  const [resultAlgorithm, setResultAlgorithm] = useState('adaptive')
 
   useEffect(() => {
     let active = true
@@ -73,6 +79,7 @@ export default function App() {
   }, [])
 
   const replay = useReplay(result?.metrics.makespan ?? 0)
+  const theme = useTheme()
   const pids = processes.map((p) => p.pid)
 
   const effectiveProcesses = (): ProcessInput[] =>
@@ -91,17 +98,22 @@ export default function App() {
     }
   }
 
-  const applyResult = (res: RunResult) => {
+  const applyResult = (res: RunResult, requested: string) => {
     replay.setTime(0)
     replay.setPlaying(false)
+    setRunId((id) => id + 1)
+    setResultAlgorithm(requested)
     setResult(res)
   }
 
   const handleRun = () =>
     run(async () => {
-      applyResult(
-        await runSchedule({ processes: effectiveProcesses(), algorithm, config }),
-      )
+      const res = await runSchedule({
+        processes: effectiveProcesses(),
+        algorithm,
+        config,
+      })
+      applyResult(res, algorithm)
     })
 
   const handleCompare = () =>
@@ -122,7 +134,7 @@ export default function App() {
         config,
       })
       setRows([...fixedRuns, { label: 'Adaptive', metrics: adaptive.metrics, adaptive: true }])
-      applyResult(adaptive)
+      applyResult(adaptive, 'adaptive')
     })
 
   const applyPreset = (name: string) => {
@@ -135,21 +147,58 @@ export default function App() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            AKT Adaptive CPU Scheduler
-          </h1>
-          <p className="text-sm text-neutral-500">
-            Live switching between Priority, SRTF and Round Robin via the AKT-Arbiter.
-          </p>
+      {loading && (
+        <div
+          role="progressbar"
+          aria-label="Loading"
+          className="progress-track fixed inset-x-0 top-0 z-20 h-0.5 bg-accent/10"
+        />
+      )}
+
+      <header className="sticky top-0 z-10 -mx-6 mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-line bg-canvas/85 px-6 py-4 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-fg text-canvas">
+            <Cpu size={18} strokeWidth={1.75} />
+          </span>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">
+              AKT Adaptive CPU Scheduler
+            </h1>
+            <p className="text-sm text-muted">
+              Live switching between Priority, SRTF and Round Robin via the AKT-Arbiter.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {result && (
+            <div className="fade-up hidden items-center gap-3 text-xs text-muted sm:flex">
+              <span className="rounded-full border border-line bg-surface px-2.5 py-1">
+                {result.metrics.algorithm_switches} algorithm switches
+              </span>
+              <span className="rounded-full border border-line bg-surface px-2.5 py-1">
+                makespan {result.metrics.makespan} ms
+              </span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={theme.toggle}
+            aria-label="Toggle colour theme"
+            className="rounded-md border border-line p-2 text-muted transition-colors hover:text-fg"
+          >
+            {theme.theme === 'dark' ? (
+              <Sun size={16} strokeWidth={1.75} />
+            ) : (
+              <Moon size={16} strokeWidth={1.75} />
+            )}
+          </button>
         </div>
       </header>
 
       {error && (
         <div
           role="alert"
-          className="mb-6 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="mb-6 whitespace-pre-line rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500"
         >
           {error}
         </div>
@@ -169,7 +218,7 @@ export default function App() {
                 <select
                   value=""
                   onChange={(e) => applyPreset(e.target.value)}
-                  className="w-44 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="w-44 rounded-md border border-line bg-surface px-2 py-1.5 text-xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                   aria-label="Preset workload"
                 >
                   <option value="">Preset workloads…</option>
@@ -179,12 +228,12 @@ export default function App() {
                     </option>
                   ))}
                 </select>
-                <label className="flex items-center gap-2 text-xs font-medium text-neutral-600">
+                <label className="flex items-center gap-2 text-xs font-medium text-muted">
                   <input
                     type="checkbox"
                     checked={usePriority}
                     onChange={(e) => setUsePriority(e.target.checked)}
-                    className="h-4 w-4 rounded border-neutral-300 accent-accent"
+                    className="h-4 w-4 rounded border-line accent-accent"
                   />
                   Set priorities
                 </label>
@@ -197,7 +246,7 @@ export default function App() {
               usePriority={usePriority}
             />
             {!usePriority && (
-              <p className="mt-2 text-xs leading-relaxed text-neutral-400">
+              <p className="mt-2 text-xs leading-relaxed text-subtle">
                 Priority is ignored — every process defaults to 3.
               </p>
             )}
@@ -216,7 +265,7 @@ export default function App() {
                 <select
                   value={algorithm}
                   onChange={(e) => setAlgorithm(e.target.value)}
-                  className="rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                   aria-label="Algorithm"
                 >
                   {ALGORITHMS.map((a) => (
@@ -229,16 +278,18 @@ export default function App() {
                   type="button"
                   onClick={handleRun}
                   disabled={loading}
-                  className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-fg px-3 py-1.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
+                  <Play size={15} strokeWidth={1.75} />
                   {loading ? 'Running…' : 'Run'}
                 </button>
                 <button
                   type="button"
                   onClick={handleCompare}
                   disabled={loading}
-                  className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-muted disabled:opacity-50"
                 >
+                  <GitCompare size={15} strokeWidth={1.75} />
                   Compare all
                 </button>
               </div>
@@ -248,6 +299,7 @@ export default function App() {
               gantt={result?.gantt ?? []}
               pids={pids}
               currentTime={result ? replay.time : null}
+              animationKey={runId}
             />
           </Panel>
 
@@ -264,7 +316,14 @@ export default function App() {
           </Panel>
 
           {result && (
-            <Panel title="Run metrics" description={`Algorithm: ${result.algorithm}`}>
+            <Panel
+              title="Run metrics"
+              description={
+                resultAlgorithm === 'adaptive'
+                  ? `Adaptive (last: ${algorithmLabel(result!.algorithm)})`
+                  : algorithmLabel(resultAlgorithm)
+              }
+            >
               <MetricsGrid metrics={result.metrics} />
             </Panel>
           )}
@@ -290,9 +349,17 @@ export default function App() {
             <ComparisonTable rows={rows} />
           </Panel>
 
+          <div className="pt-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-subtle">
+              Experiments
+            </h2>
+          </div>
+
           <SweepPanel processes={effectiveProcesses()} config={config} />
 
           <QuantumPanel processes={effectiveProcesses()} config={config} />
+
+          <BenchmarkPanel config={config} />
 
           <div className="grid gap-6 xl:grid-cols-2">
             <Panel title="Decision log" description="Why each switch happened">

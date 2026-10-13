@@ -18,7 +18,7 @@ const COLS: { label: string; get: (p: ProcessResult) => string | number }[] = [
 export default function ProcessResultTable({ processes }: Props) {
   if (processes.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-neutral-400">
+      <p className="py-8 text-center text-sm text-subtle">
         Per-process timings appear after a run.
       </p>
     )
@@ -28,7 +28,7 @@ export default function ProcessResultTable({ processes }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+          <tr className="border-b border-line text-left text-xs text-muted">
             <th className="px-3 py-2 font-medium">PID</th>
             {COLS.map((c) => (
               <th key={c.label} className="px-3 py-2 text-right font-medium">
@@ -39,7 +39,7 @@ export default function ProcessResultTable({ processes }: Props) {
         </thead>
         <tbody>
           {processes.map((p) => (
-            <tr key={p.pid} className="border-b border-neutral-100 last:border-0">
+            <tr key={p.pid} className="border-b border-line-soft last:border-0">
               <td className="px-3 py-2 font-medium">{p.pid}</td>
               {COLS.map((c) => (
                 <td key={c.label} className="px-3 py-2 text-right tabular-nums">

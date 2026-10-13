@@ -1,8 +1,10 @@
 import type {
   Config,
+  MatrixResult,
   Preset,
   ProcessInput,
   QuantumRow,
+  RandomBenchmarkResult,
   RunRequest,
   RunResult,
   SweepRow,
@@ -87,4 +89,34 @@ export async function fetchWorkloads(): Promise<Preset[]> {
     throw new Error(`Failed to load presets (${res.status})`)
   }
   return (await res.json()) as Preset[]
+}
+
+export async function runBenchmarkMatrix(config: Config): Promise<MatrixResult> {
+  const res = await fetch(`${BASE}/benchmark/matrix`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(formatError(body, res.status))
+  }
+  return (await res.json()) as MatrixResult
+}
+
+export async function runBenchmarkRandom(
+  config: Config,
+  count: number,
+  seed: number,
+): Promise<RandomBenchmarkResult> {
+  const res = await fetch(`${BASE}/benchmark/random`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config, count, seed }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(formatError(body, res.status))
+  }
+  return (await res.json()) as RandomBenchmarkResult
 }

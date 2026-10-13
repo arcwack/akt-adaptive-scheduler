@@ -23,7 +23,7 @@ const COLUMNS: { label: string; get: (m: Metrics) => string }[] = [
 export default function ComparisonTable({ rows }: Props) {
   if (rows.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-neutral-400">
+      <p className="py-8 text-center text-sm text-subtle">
         Compare all algorithms to see the summary table.
       </p>
     )
@@ -35,7 +35,7 @@ export default function ComparisonTable({ rows }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+          <tr className="border-b border-line text-left text-xs text-muted">
             <th className="px-3 py-2 font-medium">Algorithm</th>
             {COLUMNS.map((c) => (
               <th key={c.label} className="px-3 py-2 text-right font-medium">
@@ -50,8 +50,8 @@ export default function ComparisonTable({ rows }: Props) {
               key={row.label}
               className={
                 row.adaptive
-                  ? 'border-b border-neutral-100 bg-accent-soft font-medium'
-                  : 'border-b border-neutral-100'
+                  ? 'border-b border-line-soft bg-accent-soft font-medium'
+                  : 'border-b border-line-soft'
               }
             >
               <td className="px-3 py-2">{row.label}</td>
@@ -64,7 +64,7 @@ export default function ComparisonTable({ rows }: Props) {
                   <td
                     key={c.label}
                     className={`px-3 py-2 text-right tabular-nums ${
-                      isBest ? 'font-semibold text-emerald-700' : ''
+                      isBest ? 'font-semibold text-emerald-500' : ''
                     }`}
                   >
                     {c.get(row.metrics)}

@@ -40,3 +40,13 @@ class QuantumRequest(BaseModel):
     processes: list[ProcessIn] = Field(min_length=1)
     config: ConfigIn = Field(default_factory=ConfigIn)
     quanta: list[int] = Field(default_factory=lambda: [2, 4, 8])
+
+
+class MatrixBenchmarkRequest(BaseModel):
+    config: ConfigIn = Field(default_factory=ConfigIn)
+
+
+class RandomBenchmarkRequest(BaseModel):
+    config: ConfigIn = Field(default_factory=ConfigIn)
+    count: int = Field(default=100, ge=1, le=1000)
+    seed: int = 42

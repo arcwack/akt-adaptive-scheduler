@@ -9,13 +9,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from engine.algorithms import ALGORITHM_LABELS, FIXED_ALGORITHMS
+from engine.benchmark import matrix_benchmark, random_benchmark
 from engine.config import SimConfig
 from engine.experiments import cooldown_sweep, quantum_experiment
 from engine.models import Process
 from engine.presets import serialize_presets
 from engine.simulator import simulate, simulate_adaptive
 
-from .schemas import QuantumRequest, RunRequest, SweepRequest
+from .schemas import (
+    MatrixBenchmarkRequest,
+    QuantumRequest,
+    RandomBenchmarkRequest,
+    RunRequest,
+    SweepRequest,
+)
 from .serializers import serialize_result
 
 DESCRIPTION = """
@@ -111,6 +118,24 @@ def quantum_sweep(request: QuantumRequest) -> dict:
     config = _to_config(request)
     processes = _to_processes(request)
     return {"rows": quantum_experiment(processes, config, request.quanta)}
+
+
+@router.post(
+    "/benchmark/matrix",
+    tags=["Experiments"],
+    summary="Preset workloads x all algorithms (metric matrix)",
+)
+def benchmark_matrix(request: MatrixBenchmarkRequest) -> dict:
+    return matrix_benchmark(_to_config(request))
+
+
+@router.post(
+    "/benchmark/random",
+    tags=["Experiments"],
+    summary="Seeded random workloads: mean metrics and Adaptive win rate",
+)
+def benchmark_random(request: RandomBenchmarkRequest) -> dict:
+    return random_benchmark(request.count, request.seed, _to_config(request))
 
 
 app.include_router(router)

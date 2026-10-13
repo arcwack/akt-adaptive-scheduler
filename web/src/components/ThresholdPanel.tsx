@@ -17,7 +17,7 @@ const FIELDS: { key: keyof Config; label: string; step: number; min: number }[] 
 ]
 
 const inputClass =
-  'w-full rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-accent focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-md border border-line bg-surface px-2 py-1 text-sm tabular-nums outline-none focus:border-accent focus:ring-2 focus:ring-accent/20'
 
 function toNumber(raw: string, min: number, prev: number): number {
   if (raw.trim() === '') return prev
@@ -32,7 +32,7 @@ export default function ThresholdPanel({ config, onChange }: Props) {
       <div className="grid grid-cols-2 gap-x-3 gap-y-3">
         {FIELDS.map(({ key, label, step, min }) => (
           <label key={key} className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-500">{label}</span>
+            <span className="text-xs font-medium text-muted">{label}</span>
             <input
               type="number"
               step={step}
@@ -49,7 +49,7 @@ export default function ThresholdPanel({ config, onChange }: Props) {
           </label>
         ))}
         <label className="block space-y-1">
-          <span className="text-xs font-medium text-neutral-500">
+          <span className="text-xs font-medium text-muted">
             Fixed quantum
           </span>
           <input
@@ -70,7 +70,7 @@ export default function ThresholdPanel({ config, onChange }: Props) {
           />
         </label>
       </div>
-      <p className="text-xs leading-relaxed text-neutral-400">
+      <p className="text-xs leading-relaxed text-subtle">
         Leave fixed quantum empty to use the dynamic median-based quantum.
       </p>
     </div>

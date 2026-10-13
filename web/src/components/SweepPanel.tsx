@@ -53,7 +53,7 @@ export default function SweepPanel({ processes, config }: Props) {
             type="button"
             onClick={run}
             disabled={loading}
-            className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
+            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium hover:bg-surface-muted disabled:opacity-50"
           >
             {loading ? 'Sweeping…' : 'Run sweep'}
           </button>
@@ -64,18 +64,27 @@ export default function SweepPanel({ processes, config }: Props) {
         <p className="mb-3 whitespace-pre-line text-sm text-red-600">{error}</p>
       )}
       {rows.length === 0 && !error ? (
-        <p className="py-8 text-center text-sm text-neutral-400">
+        <p className="py-8 text-center text-sm text-subtle">
           Run the sweep on the thrashing preset to see why 8 ms was chosen.
         </p>
       ) : (
         <>
           <SweepChart rows={rows} />
-          <p className="mt-2 text-xs leading-relaxed text-neutral-500">
-            Longer cooldown cuts switches and (past a point) raises waiting time —
-            the trade-off behind the 8 ms default.
-          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted">{caption(rows)}</p>
         </>
       )}
     </Panel>
+  )
+}
+
+function caption(rows: SweepRow[]): string {
+  const first = rows[0]
+  const last = rows[rows.length - 1]
+  const dir = last.avg_waiting <= first.avg_waiting ? 'falls' : 'rises'
+  return (
+    `Algorithm switches fall from ${first.algorithm_switches} at ${first.cooldown} ms ` +
+    `to ${last.algorithm_switches} at ${last.cooldown} ms. On this workload average ` +
+    `waiting ${dir} from ${first.avg_waiting.toFixed(1)} to ${last.avg_waiting.toFixed(1)} ms — ` +
+    `the cooldown trade-off is workload dependent.`
   )
 }
