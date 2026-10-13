@@ -1,4 +1,12 @@
-import type { Config, ProcessInput, RunRequest, RunResult, SweepRow } from './types'
+import type {
+  Config,
+  Preset,
+  ProcessInput,
+  QuantumRow,
+  RunRequest,
+  RunResult,
+  SweepRow,
+} from './types'
 
 const BASE = '/api'
 
@@ -54,4 +62,29 @@ export async function runCooldownSweep(
   }
   const data = (await res.json()) as { rows: SweepRow[] }
   return data.rows
+}
+
+export async function runQuantumExperiment(
+  processes: ProcessInput[],
+  config: Config,
+): Promise<QuantumRow[]> {
+  const res = await fetch(`${BASE}/quantum-sweep`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ processes, config, quanta: [2, 4, 8] }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(formatError(body, res.status))
+  }
+  const data = (await res.json()) as { rows: QuantumRow[] }
+  return data.rows
+}
+
+export async function fetchWorkloads(): Promise<Preset[]> {
+  const res = await fetch(`${BASE}/workloads`)
+  if (!res.ok) {
+    throw new Error(`Failed to load presets (${res.status})`)
+  }
+  return (await res.json()) as Preset[]
 }

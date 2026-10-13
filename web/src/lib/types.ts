@@ -85,6 +85,25 @@ export interface SweepRow {
   avg_turnaround: number
 }
 
+export interface QuantumRow {
+  label: string
+  quantum: number | null
+  dynamic: boolean
+  avg_waiting: number
+  avg_turnaround: number
+  avg_response: number
+  context_switches: number
+  algorithm_switches: number
+  max_waiting: number
+}
+
+export interface Preset {
+  name: string
+  use_priority: boolean
+  config: Partial<Config>
+  processes: ProcessInput[]
+}
+
 export const ALGORITHMS: { key: string; label: string }[] = [
   { key: 'adaptive', label: 'Adaptive' },
   { key: 'fcfs', label: 'FCFS' },

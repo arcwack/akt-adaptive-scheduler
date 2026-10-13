@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { runCooldownSweep } from '../lib/api'
 import type { Config, ProcessInput, SweepRow } from '../lib/types'
+import ExportButtons from './ExportButtons'
 import Panel from './Panel'
 import SweepChart from './SweepChart'
 
@@ -9,6 +10,14 @@ interface Props {
   processes: ProcessInput[]
   config: Config
 }
+
+const EXPORT_COLUMNS = [
+  { key: 'cooldown', label: 'cooldown_ms' },
+  { key: 'algorithm_switches', label: 'algorithm_switches' },
+  { key: 'context_switches', label: 'context_switches' },
+  { key: 'avg_waiting', label: 'avg_waiting' },
+  { key: 'avg_turnaround', label: 'avg_turnaround' },
+]
 
 export default function SweepPanel({ processes, config }: Props) {
   const [rows, setRows] = useState<SweepRow[]>([])
@@ -32,14 +41,23 @@ export default function SweepPanel({ processes, config }: Props) {
       title="Cooldown sweep"
       description="Algorithm switches and average waiting at cooldown 0, 4, 8 and 16 ms"
       actions={
-        <button
-          type="button"
-          onClick={run}
-          disabled={loading}
-          className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
-        >
-          {loading ? 'Sweeping…' : 'Run sweep'}
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButtons
+            basename="cooldown-sweep"
+            columns={EXPORT_COLUMNS}
+            rows={rows as unknown as Record<string, unknown>[]}
+            json={{ rows }}
+            disabled={rows.length === 0}
+          />
+          <button
+            type="button"
+            onClick={run}
+            disabled={loading}
+            className="rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {loading ? 'Sweeping…' : 'Run sweep'}
+          </button>
+        </div>
       }
     >
       {error && (

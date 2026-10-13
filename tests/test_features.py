@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from engine.config import SimConfig
-from engine.experiments import cooldown_sweep
+from engine.experiments import cooldown_sweep, quantum_experiment
 from engine.models import Process
 from engine.policy import PolicyDecision
 from engine.simulator import Simulator, simulate, simulate_adaptive
@@ -51,3 +51,11 @@ def test_cooldown_sweep_shape():
     for row in rows:
         assert row["algorithm_switches"] >= 0
         assert row["avg_waiting"] >= 0
+
+
+def test_quantum_experiment_shape():
+    workload = [Process("P1", 0, 6, 3), Process("P2", 1, 2, 3), Process("P3", 2, 8, 3)]
+    rows = quantum_experiment(workload, SimConfig())
+    assert [r["quantum"] for r in rows] == [2, 4, 8, None]
+    assert rows[-1]["dynamic"] is True
+    assert all(r["avg_response"] >= 0 for r in rows)

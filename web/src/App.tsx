@@ -1,26 +1,51 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import ComparisonTable, { type ComparisonRow } from './components/ComparisonTable'
 import DecisionLog from './components/DecisionLog'
+import ExportButtons from './components/ExportButtons'
 import Gantt from './components/Gantt'
 import MetricsGrid from './components/MetricsGrid'
 import Panel from './components/Panel'
 import ProcessResultTable from './components/ProcessResultTable'
 import ProcessTable from './components/ProcessTable'
+import QuantumPanel from './components/QuantumPanel'
 import ReplayPanel from './components/ReplayPanel'
 import SweepPanel from './components/SweepPanel'
 import ThresholdPanel from './components/ThresholdPanel'
-import { runSchedule } from './lib/api'
-import { PRESETS } from './lib/presets'
+import { fetchWorkloads, runSchedule } from './lib/api'
 import {
   ALGORITHMS,
   DEFAULT_CONFIG,
   DEMO_PROCESSES,
   type Config,
+  type Preset,
   type ProcessInput,
   type RunResult,
 } from './lib/types'
 import { useReplay } from './lib/useReplay'
+
+const COMPARISON_COLUMNS = [
+  { key: 'algorithm', label: 'algorithm' },
+  { key: 'avg_waiting', label: 'avg_waiting' },
+  { key: 'avg_turnaround', label: 'avg_turnaround' },
+  { key: 'avg_response', label: 'avg_response' },
+  { key: 'cpu_utilization', label: 'cpu_utilization' },
+  { key: 'context_switches', label: 'context_switches' },
+  { key: 'algorithm_switches', label: 'algorithm_switches' },
+  { key: 'max_waiting', label: 'max_waiting' },
+]
+
+const PROCESS_COLUMNS = [
+  { key: 'pid', label: 'pid' },
+  { key: 'arrival', label: 'arrival' },
+  { key: 'burst', label: 'burst' },
+  { key: 'priority', label: 'priority' },
+  { key: 'first_run', label: 'first_run' },
+  { key: 'finish', label: 'finish' },
+  { key: 'waiting', label: 'waiting' },
+  { key: 'turnaround', label: 'turnaround' },
+  { key: 'response', label: 'response' },
+]
 
 export default function App() {
   const [processes, setProcesses] = useState<ProcessInput[]>(DEMO_PROCESSES)
@@ -31,6 +56,21 @@ export default function App() {
   const [rows, setRows] = useState<ComparisonRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [presets, setPresets] = useState<Preset[]>([])
+
+  useEffect(() => {
+    let active = true
+    fetchWorkloads()
+      .then((loaded) => {
+        if (active) setPresets(loaded)
+      })
+      .catch(() => {
+        if (active) setPresets([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const replay = useReplay(result?.metrics.makespan ?? 0)
   const pids = processes.map((p) => p.pid)
@@ -86,10 +126,10 @@ export default function App() {
     })
 
   const applyPreset = (name: string) => {
-    const preset = PRESETS.find((p) => p.name === name)
+    const preset = presets.find((p) => p.name === name)
     if (!preset) return
     setProcesses(preset.processes)
-    setUsePriority(preset.usePriority)
+    setUsePriority(preset.use_priority)
     if (preset.config) setConfig((c) => ({ ...c, ...preset.config }))
   }
 
@@ -133,7 +173,7 @@ export default function App() {
                   aria-label="Preset workload"
                 >
                   <option value="">Preset workloads…</option>
-                  {PRESETS.map((p) => (
+                  {presets.map((p) => (
                     <option key={p.name} value={p.name}>
                       {p.name}
                     </option>
@@ -229,17 +269,49 @@ export default function App() {
             </Panel>
           )}
 
-          <Panel title="Comparison" description="Adaptive vs each fixed algorithm">
+          <Panel
+            title="Comparison"
+            description="Adaptive vs each fixed algorithm"
+            actions={
+              <ExportButtons
+                basename="comparison"
+                columns={COMPARISON_COLUMNS}
+                rows={
+                  rows.map((r) => ({ algorithm: r.label, ...r.metrics })) as unknown as Record<
+                    string,
+                    unknown
+                  >[]
+                }
+                json={{ rows }}
+                disabled={rows.length === 0}
+              />
+            }
+          >
             <ComparisonTable rows={rows} />
           </Panel>
 
           <SweepPanel processes={effectiveProcesses()} config={config} />
 
+          <QuantumPanel processes={effectiveProcesses()} config={config} />
+
           <div className="grid gap-6 xl:grid-cols-2">
             <Panel title="Decision log" description="Why each switch happened">
               <DecisionLog decisions={result?.decisions ?? []} />
             </Panel>
-            <Panel title="Per-process timings">
+            <Panel
+              title="Per-process timings"
+              actions={
+                <ExportButtons
+                  basename="per-process"
+                  columns={PROCESS_COLUMNS}
+                  rows={
+                    (result?.processes ?? []) as unknown as Record<string, unknown>[]
+                  }
+                  json={{ processes: result?.processes ?? [] }}
+                  disabled={!result}
+                />
+              }
+            >
               <ProcessResultTable processes={result?.processes ?? []} />
             </Panel>
           </div>
