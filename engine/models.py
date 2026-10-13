@@ -83,6 +83,17 @@ class DecisionRecord:
     switched: bool = False
 
 
+@dataclass(frozen=True)
+class Frame:
+    """Per-tick snapshot used by the step-through replay."""
+
+    time: int
+    running: str | None
+    ready: list[str]
+    algorithm: str
+    remaining: dict[str, int]
+
+
 @dataclass
 class Metrics:
     avg_waiting: float
@@ -102,6 +113,7 @@ class RunResult:
     decisions: list[DecisionRecord] = field(default_factory=list)
     processes: list[ProcessState] = field(default_factory=list)
     metrics: Metrics | None = None
+    frames: list[Frame] = field(default_factory=list)
 
     def gantt(self) -> list[TimelineSlice]:
         """Merge adjacent slices with the same pid and algorithm."""

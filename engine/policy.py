@@ -18,6 +18,7 @@ class PolicyDecision:
     algorithm: str
     reason: str
     urgent: bool = False
+    noteworthy: bool = False
 
 
 class Policy(Protocol):

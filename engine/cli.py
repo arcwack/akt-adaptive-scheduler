@@ -12,7 +12,7 @@ import argparse
 from .algorithms import ALGORITHM_LABELS, FIXED_ALGORITHMS
 from .config import SimConfig
 from .models import Process, RunResult
-from .simulator import simulate
+from .simulator import simulate, simulate_adaptive
 
 DEMO_WORKLOAD = [
     Process("P1", arrival=0, burst=8, priority=2),
@@ -71,9 +71,19 @@ def main(argv: list[str] | None = None) -> None:
         result = simulate(DEMO_WORKLOAD, key, config)
         print(render_row(ALGORITHM_LABELS[key], result))
 
+    print("-" * len(header))
+    adaptive = simulate_adaptive(DEMO_WORKLOAD, config)
+    print(render_row("Adaptive", adaptive))
+
     print()
     print("Gantt (Round Robin):")
     print("  " + render_gantt(simulate(DEMO_WORKLOAD, "rr", config)))
+    print("Gantt (Adaptive):")
+    print("  " + render_gantt(adaptive))
+    print("  switches:")
+    for d in adaptive.decisions:
+        if d.switched:
+            print(f"    t={d.time:<3} -> {d.algorithm:<8} {d.reason}")
 
 
 if __name__ == "__main__":

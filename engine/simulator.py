@@ -7,17 +7,18 @@ choices. One tick == one millisecond, matching the PRD's thresholds.
 from __future__ import annotations
 
 from .algorithms import ALGORITHM_LABELS, build_algorithm
+from .algorithms.base import ScheduleContext
 from .config import SimConfig
 from .metrics import compute_metrics
 from .models import (
     DecisionRecord,
+    Frame,
     Process,
     ProcessState,
     RunResult,
     TimelineSlice,
 )
 from .policy import FixedPolicy, Policy
-from .algorithms.base import ScheduleContext
 
 
 class Simulator:
@@ -40,6 +41,7 @@ class Simulator:
         context_switches = 0
         algorithm_switches = 0
         timeline: list[TimelineSlice] = []
+        frames: list[Frame] = []
 
         init = self.policy.decide(0, None, [], "")
         current_key = init.algorithm
@@ -70,12 +72,17 @@ class Simulator:
                     DecisionRecord(t, current_key, decision.reason, switched=True)
                 )
                 t = self._apply_penalty(
-                    states, ready, timeline, t, current_key
+                    states, ready, timeline, frames, t, current_key
                 )
                 continue
+            if decision.noteworthy:
+                decisions.append(
+                    DecisionRecord(t, current_key, decision.reason, switched=False)
+                )
 
             if running is None and not ready:
                 timeline.append(TimelineSlice(t, t + 1, None, current_key))
+                frames.append(self._snap(t, None, ready, current_key))
                 t += 1
                 continue
 
@@ -83,6 +90,7 @@ class Simulator:
             chosen = algorithm.pick(ctx)
             if chosen is None:
                 timeline.append(TimelineSlice(t, t + 1, None, current_key))
+                frames.append(self._snap(t, None, ready, current_key))
                 t += 1
                 continue
 
@@ -99,6 +107,7 @@ class Simulator:
 
             if running.first_run is None:
                 running.first_run = t
+            frames.append(self._snap(t, running, ready, current_key))
             running.remaining -= 1
             for s in ready:
                 s.waited += 1
@@ -119,6 +128,24 @@ class Simulator:
             decisions=decisions,
             processes=states,
             metrics=metrics,
+            frames=frames,
+        )
+
+    @staticmethod
+    def _snap(
+        t: int, running: ProcessState | None, ready: list[ProcessState], key: str
+    ) -> Frame:
+        remaining: dict[str, int] = {}
+        if running is not None:
+            remaining[running.pid] = running.remaining
+        for s in ready:
+            remaining[s.pid] = s.remaining
+        return Frame(
+            time=t,
+            running=running.pid if running else None,
+            ready=[s.pid for s in ready],
+            algorithm=key,
+            remaining=remaining,
         )
 
     @staticmethod
@@ -135,6 +162,7 @@ class Simulator:
         states: list[ProcessState],
         ready: list[ProcessState],
         timeline: list[TimelineSlice],
+        frames: list[Frame],
         t: int,
         algorithm_key: str,
     ) -> int:
@@ -143,6 +171,7 @@ class Simulator:
             for s in ready:
                 s.waited += 1
             timeline.append(TimelineSlice(t, t + 1, None, algorithm_key))
+            frames.append(self._snap(t, None, ready, algorithm_key))
             t += 1
             self._release(states, ready, t)
         return t
@@ -156,3 +185,13 @@ def simulate(
     """Run one fixed algorithm over a workload."""
     policy = FixedPolicy(algorithm_key, ALGORITHM_LABELS.get(algorithm_key, algorithm_key))
     return Simulator(processes, policy, config).run()
+
+
+def simulate_adaptive(
+    processes: list[Process],
+    config: SimConfig | None = None,
+) -> RunResult:
+    """Run the AKT-Arbiter adaptive scheduler over a workload."""
+    from .arbiter import AKTArbiter
+
+    return Simulator(processes, AKTArbiter(config), config).run()

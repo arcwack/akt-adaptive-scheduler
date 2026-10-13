@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff6ff;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: #fafafa;
+  color: #171717;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
