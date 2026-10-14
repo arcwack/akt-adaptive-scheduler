@@ -131,6 +131,7 @@ class Simulator:
             processes=states,
             metrics=metrics,
             frames=frames,
+            rounds=list(getattr(algorithm, "rounds", [])),
         )
 
     @staticmethod

@@ -114,6 +114,7 @@ class RunResult:
     processes: list[ProcessState] = field(default_factory=list)
     metrics: Metrics | None = None
     frames: list[Frame] = field(default_factory=list)
+    rounds: list[dict] = field(default_factory=list)
 
     def gantt(self) -> list[TimelineSlice]:
         """Merge adjacent slices with the same pid and algorithm."""

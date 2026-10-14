@@ -1,14 +1,14 @@
 const PALETTE = [
-  '#2563eb',
+  '#0f766e',
   '#16a34a',
   '#d97706',
   '#dc2626',
   '#7c3aed',
-  '#0891b2',
   '#db2777',
+  '#0891b2',
   '#4d7c0f',
   '#ea580c',
-  '#0f766e',
+  '#a16207',
 ]
 
 export function colorMap(pids: string[]): Record<string, string> {
@@ -20,10 +20,12 @@ export function colorMap(pids: string[]): Record<string, string> {
 }
 
 export const ALGORITHM_COLORS: Record<string, string> = {
+  adaptive: 'var(--accent)',
   priority: '#dc2626',
   srtf: '#d97706',
-  rr: '#2563eb',
+  rr: '#7c3aed',
   fcfs: '#64748b',
-  sjf: '#7c3aed',
-  adaptive: '#0f766e',
+  sjf: '#0891b2',
 }
+
+export const MUTED_BAR = 'var(--muted)'

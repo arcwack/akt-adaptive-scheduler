@@ -65,6 +65,7 @@ export default function Gantt({ gantt, pids, currentTime, animationKey }: Props)
           const width = pct(s.end - s.start)
           const duration = s.end - s.start
           const idle = s.pid === null
+          const dim = typeof currentTime === 'number' && s.start >= currentTime
           return (
             <div
               key={`${animationKey}-${i}`}
@@ -73,8 +74,9 @@ export default function Gantt({ gantt, pids, currentTime, animationKey }: Props)
                 width,
                 backgroundColor: idle ? 'var(--line)' : colors[s.pid as string] ?? '#94a3b8',
                 animationDelay: delay(s.start),
+                opacity: dim ? 0.25 : 1,
               }}
-              className={`gantt-segment flex h-12 items-center justify-center overflow-hidden border-r border-white/50 text-xs font-medium text-white last:border-r-0 ${
+              className={`gantt-segment flex h-12 items-center justify-center overflow-hidden border-r border-white/50 text-xs font-medium text-white transition-opacity duration-150 last:border-r-0 ${
                 idle ? 'text-muted' : ''
               }`}
             >

@@ -1,18 +1,25 @@
 import { Cpu, GitCompare, Moon, Play, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import ComparisonTable, { type ComparisonRow } from './components/ComparisonTable'
 import BenchmarkPanel from './components/BenchmarkPanel'
+import ArchitecturePanel from './components/ArchitecturePanel'
+import ComparisonCharts, { type ChartRow } from './components/ComparisonCharts'
+import CvChart from './components/CvChart'
 import DecisionLog from './components/DecisionLog'
 import ExportButtons from './components/ExportButtons'
 import Gantt from './components/Gantt'
 import MetricsGrid from './components/MetricsGrid'
 import Panel from './components/Panel'
+import ProcessLegend from './components/ProcessLegend'
 import ProcessResultTable from './components/ProcessResultTable'
 import ProcessTable from './components/ProcessTable'
 import QuantumPanel from './components/QuantumPanel'
 import ReplayPanel from './components/ReplayPanel'
+import RoundRobinPanel from './components/RoundRobinPanel'
+import StackedGantt, { type GanttRow } from './components/StackedGantt'
+import SummaryCards from './components/SummaryCards'
 import SweepPanel from './components/SweepPanel'
+import Tabs from './components/Tabs'
 import ThresholdPanel from './components/ThresholdPanel'
 import { fetchWorkloads, runSchedule } from './lib/api'
 import {
@@ -51,18 +58,51 @@ const PROCESS_COLUMNS = [
   { key: 'response', label: 'response' },
 ]
 
+const TABS = [
+  { key: 'run', label: 'Run' },
+  { key: 'compare', label: 'Compare' },
+  { key: 'experiments', label: 'Experiments' },
+  { key: 'log', label: 'Log' },
+  { key: 'architecture', label: 'Architecture' },
+  { key: 'rr', label: 'Round Robin' },
+]
+
 export default function App() {
   const [processes, setProcesses] = useState<ProcessInput[]>(DEMO_PROCESSES)
   const [usePriority, setUsePriority] = useState(true)
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG)
   const [algorithm, setAlgorithm] = useState('adaptive')
-  const [result, setResult] = useState<RunResult | null>(null)
-  const [rows, setRows] = useState<ComparisonRow[]>([])
+  const [runs, setRuns] = useState<Record<string, RunResult>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
   const [runId, setRunId] = useState(0)
-  const [resultAlgorithm, setResultAlgorithm] = useState('adaptive')
+  const [tab, setTab] = useState('run')
+
+  const result = runs[algorithm] ?? null
+  const replay = useReplay(result?.metrics.makespan ?? 0)
+  const theme = useTheme()
+  const pids = processes.map((p) => p.pid)
+
+  const rows: ChartRow[] = ALGORITHMS.filter((a) => runs[a.key]).map((a) => ({
+    label: a.label,
+    metrics: runs[a.key].metrics,
+    adaptive: a.key === 'adaptive',
+  }))
+  const fixedRows = rows.filter((r) => !r.adaptive)
+  const bestFixed = fixedRows.length
+    ? {
+        avg_waiting: Math.min(...fixedRows.map((r) => r.metrics.avg_waiting)),
+        avg_response: Math.min(...fixedRows.map((r) => r.metrics.avg_response)),
+        algorithm_switches: 0,
+        makespan: Math.min(...fixedRows.map((r) => r.metrics.makespan)),
+      }
+    : null
+  const stacked: GanttRow[] = ALGORITHMS.filter((a) => runs[a.key]).map((a) => ({
+    key: a.key,
+    label: a.label,
+    gantt: runs[a.key].gantt,
+  }))
 
   useEffect(() => {
     let active = true
@@ -77,10 +117,6 @@ export default function App() {
       active = false
     }
   }, [])
-
-  const replay = useReplay(result?.metrics.makespan ?? 0)
-  const theme = useTheme()
-  const pids = processes.map((p) => p.pid)
 
   const effectiveProcesses = (): ProcessInput[] =>
     usePriority ? processes : processes.map((p) => ({ ...p, priority: 3 }))
@@ -98,43 +134,21 @@ export default function App() {
     }
   }
 
-  const applyResult = (res: RunResult, requested: string) => {
-    replay.setTime(0)
-    replay.setPlaying(false)
-    setRunId((id) => id + 1)
-    setResultAlgorithm(requested)
-    setResult(res)
-  }
-
-  const handleRun = () =>
-    run(async () => {
-      const res = await runSchedule({
-        processes: effectiveProcesses(),
-        algorithm,
-        config,
-      })
-      applyResult(res, algorithm)
-    })
-
-  const handleCompare = () =>
+  const runAll = (goCompare: boolean) =>
     run(async () => {
       const payload = effectiveProcesses()
-      const fixed = ALGORITHMS.filter((a) => a.key !== 'adaptive')
-      const fixedRuns = await Promise.all(
-        fixed.map((a) =>
-          runSchedule({ processes: payload, algorithm: a.key, config }).then((r) => ({
-            label: a.label,
-            metrics: r.metrics,
-          })),
+      const entries = await Promise.all(
+        ALGORITHMS.map((a) =>
+          runSchedule({ processes: payload, algorithm: a.key, config }).then(
+            (r) => [a.key, r] as const,
+          ),
         ),
       )
-      const adaptive = await runSchedule({
-        processes: payload,
-        algorithm: 'adaptive',
-        config,
-      })
-      setRows([...fixedRuns, { label: 'Adaptive', metrics: adaptive.metrics, adaptive: true }])
-      applyResult(adaptive, 'adaptive')
+      setRuns(Object.fromEntries(entries))
+      setRunId((id) => id + 1)
+      replay.setTime(0)
+      replay.setPlaying(false)
+      if (goCompare) setTab('compare')
     })
 
   const applyPreset = (name: string) => {
@@ -155,7 +169,7 @@ export default function App() {
         />
       )}
 
-      <header className="sticky top-0 z-10 -mx-6 mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-line bg-canvas/85 px-6 py-4 backdrop-blur">
+      <header className="sticky top-0 z-10 -mx-6 mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-line bg-canvas/85 px-6 py-4 backdrop-blur">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-fg text-canvas">
             <Cpu size={18} strokeWidth={1.75} />
@@ -169,31 +183,25 @@ export default function App() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {result && (
-            <div className="fade-up hidden items-center gap-3 text-xs text-muted sm:flex">
-              <span className="rounded-full border border-line bg-surface px-2.5 py-1">
-                {result.metrics.algorithm_switches} algorithm switches
-              </span>
-              <span className="rounded-full border border-line bg-surface px-2.5 py-1">
-                makespan {result.metrics.makespan} ms
-              </span>
-            </div>
+        <button
+          type="button"
+          onClick={theme.toggle}
+          aria-label="Toggle colour theme"
+          className="rounded-md border border-line p-2 text-muted transition-colors hover:text-fg"
+        >
+          {theme.theme === 'dark' ? (
+            <Sun size={16} strokeWidth={1.75} />
+          ) : (
+            <Moon size={16} strokeWidth={1.75} />
           )}
-          <button
-            type="button"
-            onClick={theme.toggle}
-            aria-label="Toggle colour theme"
-            className="rounded-md border border-line p-2 text-muted transition-colors hover:text-fg"
-          >
-            {theme.theme === 'dark' ? (
-              <Sun size={16} strokeWidth={1.75} />
-            ) : (
-              <Moon size={16} strokeWidth={1.75} />
-            )}
-          </button>
-        </div>
+        </button>
       </header>
+
+      {result && (
+        <div className="fade-up mb-6">
+          <SummaryCards metrics={result.metrics} bestFixed={bestFixed} />
+        </div>
+      )}
 
       {error && (
         <div
@@ -208,11 +216,7 @@ export default function App() {
         <div className="space-y-6">
           <Panel
             title="Processes"
-            description={
-              usePriority
-                ? 'ID, arrival, burst and priority (1–5)'
-                : 'ID, arrival and burst'
-            }
+            description={usePriority ? 'ID, arrival, burst and priority (1–5)' : 'ID, arrival and burst'}
             actions={
               <div className="flex flex-col items-end gap-2">
                 <select
@@ -240,16 +244,7 @@ export default function App() {
               </div>
             }
           >
-            <ProcessTable
-              processes={processes}
-              onChange={setProcesses}
-              usePriority={usePriority}
-            />
-            {!usePriority && (
-              <p className="mt-2 text-xs leading-relaxed text-subtle">
-                Priority is ignored — every process defaults to 3.
-              </p>
-            )}
+            <ProcessTable processes={processes} onChange={setProcesses} usePriority={usePriority} />
           </Panel>
 
           <Panel title="Arbiter thresholds" description="Tunable at runtime (FR10)">
@@ -257,131 +252,155 @@ export default function App() {
           </Panel>
         </div>
 
-        <div className="space-y-6">
-          <Panel
-            title="Schedule"
-            actions={
-              <div className="flex items-center gap-2">
-                <select
-                  value={algorithm}
-                  onChange={(e) => setAlgorithm(e.target.value)}
-                  className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                  aria-label="Algorithm"
-                >
-                  {ALGORITHMS.map((a) => (
-                    <option key={a.key} value={a.key}>
-                      {a.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleRun}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-fg px-3 py-1.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
-                >
-                  <Play size={15} strokeWidth={1.75} />
-                  {loading ? 'Running…' : 'Run'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCompare}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-muted disabled:opacity-50"
-                >
-                  <GitCompare size={15} strokeWidth={1.75} />
-                  Compare all
-                </button>
-              </div>
-            }
-          >
-            <Gantt
-              gantt={result?.gantt ?? []}
-              pids={pids}
-              currentTime={result ? replay.time : null}
-              animationKey={runId}
-            />
-          </Panel>
-
-          <Panel
-            title="Step-through replay"
-            description="Scrub time to see the running process, ready queue and algorithm"
-          >
-            <ReplayPanel
-              frames={result?.frames ?? []}
-              decisions={result?.decisions ?? []}
-              pids={pids}
-              replay={replay}
-            />
-          </Panel>
-
-          {result && (
-            <Panel
-              title="Run metrics"
-              description={
-                resultAlgorithm === 'adaptive'
-                  ? `Adaptive (last: ${algorithmLabel(result!.algorithm)})`
-                  : algorithmLabel(resultAlgorithm)
-              }
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={algorithm}
+              onChange={(e) => setAlgorithm(e.target.value)}
+              className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              aria-label="Algorithm"
             >
-              <MetricsGrid metrics={result.metrics} />
-            </Panel>
+              {ALGORITHMS.map((a) => (
+                <option key={a.key} value={a.key}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => runAll(false)}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-md bg-fg px-3 py-1.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <Play size={15} strokeWidth={1.75} />
+              {loading ? 'Running…' : 'Run'}
+            </button>
+            <button
+              type="button"
+              onClick={() => runAll(true)}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-muted disabled:opacity-50"
+            >
+              <GitCompare size={15} strokeWidth={1.75} />
+              Compare all
+            </button>
+          </div>
+
+          <Tabs tabs={TABS} active={tab} onChange={setTab} />
+
+          {tab === 'run' && (
+            <div className="space-y-6">
+              <Panel
+                title="Schedule"
+                description={
+                  result
+                    ? result.algorithm === algorithm
+                      ? algorithmLabel(algorithm)
+                      : `Adaptive (last: ${algorithmLabel(result.algorithm)})`
+                    : undefined
+                }
+              >
+                <Gantt
+                  gantt={result?.gantt ?? []}
+                  pids={pids}
+                  currentTime={result ? replay.time : null}
+                  animationKey={runId}
+                />
+                <div className="mt-3">
+                  <ProcessLegend pids={pids} />
+                </div>
+              </Panel>
+
+              <Panel title="Step-through replay" description="Scrub time to see running process, ready queue and algorithm">
+                <ReplayPanel
+                  frames={result?.frames ?? []}
+                  decisions={result?.decisions ?? []}
+                  pids={pids}
+                  replay={replay}
+                />
+              </Panel>
+
+              <Panel title="Ready-queue CV over time" description="Line = CV, dashed = skew threshold, background = active algorithm">
+                <CvChart frames={result?.frames ?? []} threshold={config.skew_threshold} />
+              </Panel>
+
+              {result && (
+                <Panel
+                  title="Run metrics"
+                  description={
+                    algorithm === 'adaptive'
+                      ? `Adaptive (last: ${algorithmLabel(result.algorithm)})`
+                      : algorithmLabel(algorithm)
+                  }
+                >
+                  <MetricsGrid metrics={result.metrics} />
+                </Panel>
+              )}
+            </div>
           )}
 
-          <Panel
-            title="Comparison"
-            description="Adaptive vs each fixed algorithm"
-            actions={
-              <ExportButtons
-                basename="comparison"
-                columns={COMPARISON_COLUMNS}
-                rows={
-                  rows.map((r) => ({ algorithm: r.label, ...r.metrics })) as unknown as Record<
-                    string,
-                    unknown
-                  >[]
+          {tab === 'compare' && (
+            <div className="space-y-6">
+              <Panel
+                title="Metrics by algorithm"
+                description="Grouped bars; Adaptive in accent, fixed algorithms muted"
+                actions={
+                  <ExportButtons
+                    basename="comparison"
+                    columns={COMPARISON_COLUMNS}
+                    rows={rows.map((r) => ({ algorithm: r.label, ...r.metrics })) as unknown as Record<string, unknown>[]}
+                    json={{ rows }}
+                    disabled={rows.length === 0}
+                  />
                 }
-                json={{ rows }}
-                disabled={rows.length === 0}
-              />
-            }
-          >
-            <ComparisonTable rows={rows} />
-          </Panel>
+              >
+                <ComparisonCharts rows={rows} />
+              </Panel>
 
-          <div className="pt-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-subtle">
-              Experiments
-            </h2>
-          </div>
+              <Panel title="All algorithms on one time axis" description="One Gantt row per algorithm">
+                <StackedGantt rows={stacked} pids={pids} />
+                <div className="mt-3">
+                  <ProcessLegend pids={pids} />
+                </div>
+              </Panel>
+            </div>
+          )}
 
-          <SweepPanel processes={effectiveProcesses()} config={config} />
+          {tab === 'experiments' && (
+            <div className="space-y-6">
+              <SweepPanel processes={effectiveProcesses()} config={config} />
+              <QuantumPanel processes={effectiveProcesses()} config={config} />
+              <BenchmarkPanel config={config} />
+            </div>
+          )}
 
-          <QuantumPanel processes={effectiveProcesses()} config={config} />
+          {tab === 'log' && (
+            <div className="space-y-6">
+              <Panel title="Decision log" description="Why each switch happened">
+                <DecisionLog decisions={result?.decisions ?? []} />
+              </Panel>
+              <Panel
+                title="Per-process timings"
+                actions={
+                  <ExportButtons
+                    basename="per-process"
+                    columns={PROCESS_COLUMNS}
+                    rows={(result?.processes ?? []) as unknown as Record<string, unknown>[]}
+                    json={{ processes: result?.processes ?? [] }}
+                    disabled={!result}
+                  />
+                }
+              >
+                <ProcessResultTable processes={result?.processes ?? []} />
+              </Panel>
+            </div>
+          )}
 
-          <BenchmarkPanel config={config} />
+          {tab === 'architecture' && <ArchitecturePanel />}
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Panel title="Decision log" description="Why each switch happened">
-              <DecisionLog decisions={result?.decisions ?? []} />
-            </Panel>
-            <Panel
-              title="Per-process timings"
-              actions={
-                <ExportButtons
-                  basename="per-process"
-                  columns={PROCESS_COLUMNS}
-                  rows={
-                    (result?.processes ?? []) as unknown as Record<string, unknown>[]
-                  }
-                  json={{ processes: result?.processes ?? [] }}
-                  disabled={!result}
-                />
-              }
-            >
-              <ProcessResultTable processes={result?.processes ?? []} />
-            </Panel>
-          </div>
+          {tab === 'rr' && (
+            <RoundRobinPanel processes={effectiveProcesses()} config={config} />
+          )}
         </div>
       </div>
     </div>

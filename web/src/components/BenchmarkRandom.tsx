@@ -57,22 +57,25 @@ export default function BenchmarkRandom({ result }: Props) {
       </div>
 
       <div>
-        <p className="mb-1.5 text-xs font-medium text-muted">
+        <p className="mb-2 text-xs font-medium text-muted">
           Adaptive had the best (or tied) value on:
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="space-y-1.5">
           {BENCH_METRICS.map((m) => {
             const rate = result.adaptive_best[m.key] ?? 0
             return (
-              <span
-                key={m.key}
-                className="rounded-md border border-line px-2 py-1 text-xs text-muted"
-              >
-                {m.label}{' '}
-                <span className="font-semibold text-fg">
+              <div key={m.key} className="flex items-center gap-3 text-xs">
+                <span className="w-32 shrink-0 text-muted">{m.label}</span>
+                <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
+                  <span
+                    className="block h-full rounded-full bg-accent"
+                    style={{ width: `${Math.max(rate * 100, 0)}%` }}
+                  />
+                </span>
+                <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-fg">
                   {(rate * 100).toFixed(0)}%
                 </span>
-              </span>
+              </div>
             )
           })}
         </div>

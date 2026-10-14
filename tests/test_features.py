@@ -59,3 +59,15 @@ def test_quantum_experiment_shape():
     assert [r["quantum"] for r in rows] == [2, 4, 8, None]
     assert rows[-1]["dynamic"] is True
     assert all(r["avg_response"] >= 0 for r in rows)
+
+
+def test_round_robin_records_rounds():
+    workload = [Process("P1", 0, 8, 3), Process("P2", 1, 4, 3), Process("P3", 2, 9, 3)]
+    result = simulate(workload, "rr")
+    assert result.rounds
+    assert result.rounds[0]["dynamic"] is True
+    for row in result.rounds:
+        assert row["quantum"] == max(2, min(16, round(row["median"])))
+
+    fixed = simulate(workload, "rr", SimConfig(fixed_quantum=4))
+    assert all(row["quantum"] == 4 and row["dynamic"] is False for row in fixed.rounds)

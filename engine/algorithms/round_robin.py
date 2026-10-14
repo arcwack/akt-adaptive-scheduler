@@ -16,6 +16,7 @@ class RoundRobin(Algorithm):
 
     def __init__(self, config: SimConfig | None = None) -> None:
         self.config = config or SimConfig()
+        self.rounds: list[dict] = []
 
     def pick(self, ctx: ScheduleContext) -> ProcessState | None:
         if ctx.running is not None and ctx.quantum_left and ctx.quantum_left > 0:
@@ -25,8 +26,21 @@ class RoundRobin(Algorithm):
         return ctx.ready[0]
 
     def quantum(self, ready: list[ProcessState], now: int) -> int | None:
-        if self.config.fixed_quantum is not None:
-            return self.config.fixed_quantum
         remaining = [p.remaining for p in ready] or [self.config.quantum_min]
-        q = round(median(remaining))
-        return max(self.config.quantum_min, min(self.config.quantum_max, q))
+        med = median(remaining)
+        fixed = self.config.fixed_quantum
+        if fixed is not None:
+            q = fixed
+        else:
+            q = max(self.config.quantum_min, min(self.config.quantum_max, round(med)))
+        self.rounds.append(
+            {
+                "round": len(self.rounds) + 1,
+                "time": now,
+                "remaining": list(remaining),
+                "median": med,
+                "quantum": q,
+                "dynamic": fixed is None,
+            }
+        )
+        return q

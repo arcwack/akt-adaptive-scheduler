@@ -68,6 +68,15 @@ export interface Frame {
   remaining: Record<string, number>
 }
 
+export interface RoundInfo {
+  round: number
+  time: number
+  remaining: number[]
+  median: number
+  quantum: number
+  dynamic: boolean
+}
+
 export interface RunResult {
   algorithm: string
   gantt: GanttSlice[]
@@ -75,6 +84,7 @@ export interface RunResult {
   decisions: Decision[]
   processes: ProcessResult[]
   frames: Frame[]
+  rounds: RoundInfo[]
 }
 
 export interface SweepRow {

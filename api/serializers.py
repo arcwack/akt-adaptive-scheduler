@@ -31,4 +31,5 @@ def serialize_result(result: RunResult) -> dict:
             _process(p, p.finish) for p in result.processes if p.finish is not None
         ],
         "frames": [asdict(f) for f in result.frames],
+        "rounds": result.rounds,
     }
