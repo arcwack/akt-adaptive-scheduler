@@ -31,6 +31,31 @@ python3 -m engine.cli            # comparison table + Gantt
 python3 -m pytest -q             # full test suite
 ```
 
+## Deploy (dashboard on Vercel, backend local or on a normal host)
+
+Vercel runs the React dashboard as static files; the FastAPI backend stays on a
+machine that runs Python (locally, or Render/Railway/Fly). The **Capture** feature
+only makes sense where the backend runs, since it samples *that* machine's processes.
+
+**Backend** (any Python host, or your laptop):
+
+```bash
+pip install -r requirements.txt
+uvicorn api.app:app --host 0.0.0.0 --port 8000
+```
+
+Set `ALLOWED_ORIGINS` to your Vercel URL if you want to lock CORS down; by default
+any `*.vercel.app` origin is allowed. `ALLOWED_ORIGIN_REGEX` overrides that.
+
+**Frontend** (Vercel):
+
+1. Import the repo, set **Root Directory = `web`** (Vite is auto-detected; see
+   `web/vercel.json`).
+2. Add env var `VITE_API_BASE = https://<your-backend-host>/api`.
+3. Deploy. The dashboard calls the backend directly; locally it falls back to
+   `/api` (proxied to `localhost:8000`), so nothing changes for local demos.
+
+
 ## 6-minute walkthrough
 
 1. **Preset: "Classic textbook"** — press **Run** (Algorithm: Adaptive).

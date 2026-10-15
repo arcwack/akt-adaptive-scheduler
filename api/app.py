@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException
@@ -44,9 +45,18 @@ app = FastAPI(
     contact={"name": "AKT Team"},
 )
 
+_DEFAULT_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+_origins = [
+    origin.strip()
+    for origin in os.environ.get("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_origins,
+    # Allow any Vercel deployment/preview by default; override with ALLOWED_ORIGIN_REGEX.
+    allow_origin_regex=os.environ.get("ALLOWED_ORIGIN_REGEX", r"https://.*\.vercel\.app"),
     allow_methods=["*"],
     allow_headers=["*"],
 )

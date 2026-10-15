@@ -12,7 +12,7 @@ import type {
   TradeoffPoint,
 } from './types'
 
-const BASE = '/api'
+const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
 interface ValidationIssue {
   loc?: (string | number)[]
