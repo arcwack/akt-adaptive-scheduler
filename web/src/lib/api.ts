@@ -1,4 +1,5 @@
 import type {
+  CaptureResult,
   Config,
   MatrixResult,
   Preset,
@@ -8,6 +9,7 @@ import type {
   RunRequest,
   RunResult,
   SweepRow,
+  TradeoffPoint,
 } from './types'
 
 const BASE = '/api'
@@ -89,6 +91,39 @@ export async function fetchWorkloads(): Promise<Preset[]> {
     throw new Error(`Failed to load presets (${res.status})`)
   }
   return (await res.json()) as Preset[]
+}
+
+export async function runQuantumTradeoff(
+  processes: ProcessInput[],
+  config: Config,
+): Promise<TradeoffPoint[]> {
+  const res = await fetch(`${BASE}/quantum-tradeoff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ processes, config }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(formatError(body, res.status))
+  }
+  const data = (await res.json()) as { points: TradeoffPoint[] }
+  return data.points
+}
+
+export async function captureProcesses(
+  window: number,
+  top: number,
+): Promise<CaptureResult> {
+  const res = await fetch(`${BASE}/capture`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ window, top }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(formatError(body, res.status))
+  }
+  return (await res.json()) as CaptureResult
 }
 
 export async function runBenchmarkMatrix(config: Config): Promise<MatrixResult> {

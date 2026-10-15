@@ -1,11 +1,14 @@
 import { useState } from 'react'
 
-import { runSchedule } from '../lib/api'
-import type { Config, GanttSlice, Metrics, ProcessInput, RunResult } from '../lib/types'
+import { runQuantumTradeoff, runSchedule } from '../lib/api'
+import { Y_METRICS, type TradeoffMetric } from '../lib/tradeoffMetrics'
+import type { Config, GanttSlice, Metrics, ProcessInput, RunResult, TradeoffPoint } from '../lib/types'
+import ExportButtons from './ExportButtons'
 import Gantt from './Gantt'
 import MetricsGrid from './MetricsGrid'
 import Panel from './Panel'
 import ProcessLegend from './ProcessLegend'
+import QuantumTradeoffChart from './QuantumTradeoffChart'
 import StackedGantt, { type GanttRow } from './StackedGantt'
 
 interface Props {
@@ -52,8 +55,10 @@ export default function RoundRobinPanel({ processes, config }: Props) {
   const [quantum, setQuantum] = useState('')
   const [live, setLive] = useState<RunResult | null>(null)
   const [compare, setCompare] = useState<CompareRow[]>([])
-  const [loading, setLoading] = useState<'live' | 'compare' | null>(null)
+  const [loading, setLoading] = useState<'live' | 'compare' | 'tradeoff' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tradeoff, setTradeoff] = useState<TradeoffPoint[]>([])
+  const [tradeoffMetric, setTradeoffMetric] = useState<TradeoffMetric>('avg_waiting')
   const pids = processes.map((p) => p.pid)
 
   const withQuantum = (fixed: number | null): Config => ({ ...config, fixed_quantum: fixed })
@@ -107,6 +112,18 @@ export default function RoundRobinPanel({ processes, config }: Props) {
     label: r.label,
     gantt: r.gantt,
   }))
+
+  const runTradeoff = async () => {
+    setLoading('tradeoff')
+    setError(null)
+    try {
+      setTradeoff(await runQuantumTradeoff(processes, config))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -267,6 +284,88 @@ export default function RoundRobinPanel({ processes, config }: Props) {
           </div>
         )}
       </Panel>
+
+      <Panel
+        title="Quantum trade-off"
+        description="Context switches vs the chosen metric for quanta 1–16 and dynamic"
+        actions={
+          <div className="flex items-center gap-2">
+            <ExportButtons
+              basename="quantum-tradeoff"
+              columns={TRADEOFF_COLUMNS}
+              rows={tradeoff as unknown as Record<string, unknown>[]}
+              json={{ points: tradeoff }}
+              disabled={tradeoff.length === 0}
+            />
+            <button
+              type="button"
+              onClick={runTradeoff}
+              disabled={loading === 'tradeoff'}
+              className="rounded-md border border-line px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-muted disabled:opacity-50"
+            >
+              {loading === 'tradeoff' ? 'Running…' : 'Run'}
+            </button>
+          </div>
+        }
+      >
+        {tradeoff.length === 0 ? (
+          <p className="py-8 text-center text-sm text-subtle">
+            Press Run to plot the waiting / context-switch trade-off across quanta.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted">Y axis</span>
+              <select
+                value={tradeoffMetric}
+                onChange={(e) =>
+                  setTradeoffMetric(e.target.value as TradeoffMetric)
+                }
+                className="rounded-md border border-line bg-surface px-2 py-1 text-xs outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                aria-label="Y axis metric"
+              >
+                {Y_METRICS.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <QuantumTradeoffChart points={tradeoff} metricKey={tradeoffMetric} />
+            <p className="text-xs leading-relaxed text-muted">
+              {tradeoffCaption(tradeoff, tradeoffMetric)}
+            </p>
+          </div>
+        )}
+      </Panel>
     </div>
   )
+}
+
+const TRADEOFF_COLUMNS = [
+  { key: 'quantum', label: 'quantum' },
+  { key: 'dynamic', label: 'dynamic' },
+  { key: 'context_switches', label: 'context_switches' },
+  { key: 'avg_waiting', label: 'avg_waiting' },
+  { key: 'avg_response', label: 'avg_response' },
+  { key: 'avg_turnaround', label: 'avg_turnaround' },
+]
+
+function tradeoffCaption(
+  points: TradeoffPoint[],
+  metricKey: TradeoffMetric,
+): string {
+  const fixed = points.filter((p) => !p.dynamic)
+  const dynamic = points.find((p) => p.dynamic)
+  const metric = Y_METRICS.find((m) => m.key === metricKey) ?? Y_METRICS[0]
+  if (!dynamic || fixed.length === 0) return 'Not enough data to compare.'
+  const beats = fixed.filter(
+    (p) =>
+      p.context_switches < dynamic.context_switches &&
+      p[metricKey] < dynamic[metricKey],
+  ).length
+  if (beats === 0) {
+    return `No fixed quantum beats dynamic on both ${metric.short} and context switches.`
+  }
+  return `${beats} of ${fixed.length} fixed quanta beat dynamic on both ${metric.short} and context switches.`
 }

@@ -50,3 +50,13 @@ class RandomBenchmarkRequest(BaseModel):
     config: ConfigIn = Field(default_factory=ConfigIn)
     count: int = Field(default=100, ge=1, le=1000)
     seed: int = 42
+
+
+class TradeoffRequest(BaseModel):
+    processes: list[ProcessIn] = Field(min_length=1)
+    config: ConfigIn = Field(default_factory=ConfigIn)
+
+
+class CaptureRequest(BaseModel):
+    window: int = Field(default=10, ge=3, le=30)
+    top: int = Field(default=10, ge=3, le=20)

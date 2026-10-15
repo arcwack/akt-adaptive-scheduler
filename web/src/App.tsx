@@ -1,4 +1,4 @@
-import { Cpu, GitCompare, Moon, Play, Sun } from 'lucide-react'
+import { Cpu, Gauge, GitCompare, Moon, Play, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import BenchmarkPanel from './components/BenchmarkPanel'
@@ -10,6 +10,7 @@ import ExportButtons from './components/ExportButtons'
 import Gantt from './components/Gantt'
 import MetricsGrid from './components/MetricsGrid'
 import Panel from './components/Panel'
+import ProcessCsvTools from './components/ProcessCsvTools'
 import ProcessLegend from './components/ProcessLegend'
 import ProcessResultTable from './components/ProcessResultTable'
 import ProcessTable from './components/ProcessTable'
@@ -21,7 +22,7 @@ import SummaryCards from './components/SummaryCards'
 import SweepPanel from './components/SweepPanel'
 import Tabs from './components/Tabs'
 import ThresholdPanel from './components/ThresholdPanel'
-import { fetchWorkloads, runSchedule } from './lib/api'
+import { captureProcesses, fetchWorkloads, runSchedule } from './lib/api'
 import {
   ALGORITHMS,
   DEFAULT_CONFIG,
@@ -78,6 +79,13 @@ export default function App() {
   const [presets, setPresets] = useState<Preset[]>([])
   const [runId, setRunId] = useState(0)
   const [tab, setTab] = useState('run')
+  const [captureWindow, setCaptureWindow] = useState(10)
+  const [capturing, setCapturing] = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [captureNote, setCaptureNote] = useState<string | null>(null)
+  const [capturedNames, setCapturedNames] = useState<
+    { pid: string; name: string; real_pid: number }[]
+  >([])
 
   const result = runs[algorithm] ?? null
   const replay = useReplay(result?.metrics.makespan ?? 0)
@@ -159,6 +167,45 @@ export default function App() {
     if (preset.config) setConfig((c) => ({ ...c, ...preset.config }))
   }
 
+  const doCapture = async () => {
+    setCapturing(true)
+    setCaptureNote(null)
+    setSecondsLeft(captureWindow)
+    const timer = setInterval(
+      () => setSecondsLeft((s) => Math.max(0, s - 1)),
+      1000,
+    )
+    try {
+      const res = await captureProcesses(captureWindow, 10)
+      if (res.message) {
+        setCaptureNote(res.message)
+        setCapturedNames([])
+      } else {
+        setProcesses(
+          res.processes.map((p) => ({
+            pid: p.pid,
+            arrival: p.arrival,
+            burst: p.burst,
+            priority: p.priority,
+          })),
+        )
+        setCapturedNames(
+          res.processes.map((p) => ({ pid: p.pid, name: p.name, real_pid: p.real_pid })),
+        )
+        setUsePriority(true)
+        setCaptureNote(
+          `Loaded ${res.count} processes from this machine ` +
+            `(burst = CPU time in a ${res.window} s window, scaled)`,
+        )
+      }
+    } catch (err) {
+      setCaptureNote(err instanceof Error ? err.message : String(err))
+    } finally {
+      clearInterval(timer)
+      setCapturing(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
       {loading && (
@@ -232,6 +279,31 @@ export default function App() {
                     </option>
                   ))}
                 </select>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={3}
+                    max={30}
+                    value={captureWindow}
+                    onChange={(e) =>
+                      setCaptureWindow(
+                        Math.min(30, Math.max(3, Number(e.target.value) || 3)),
+                      )
+                    }
+                    className="w-14 rounded-md border border-line bg-surface px-2 py-1.5 text-xs tabular-nums outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    aria-label="Capture window (seconds)"
+                    title="Capture window (seconds)"
+                  />
+                  <button
+                    type="button"
+                    onClick={doCapture}
+                    disabled={capturing}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-medium transition-colors hover:bg-surface-muted disabled:opacity-50"
+                  >
+                    <Gauge size={14} strokeWidth={1.75} />
+                    {capturing ? 'Capturing…' : 'Capture'}
+                  </button>
+                </div>
                 <label className="flex items-center gap-2 text-xs font-medium text-muted">
                   <input
                     type="checkbox"
@@ -245,6 +317,36 @@ export default function App() {
             }
           >
             <ProcessTable processes={processes} onChange={setProcesses} usePriority={usePriority} />
+            <ProcessCsvTools
+              processes={processes}
+              onImport={(imported) => {
+                setProcesses(imported)
+                setCaptureNote(null)
+                setCapturedNames([])
+              }}
+            />
+            {capturing && (
+              <p className="mt-2 text-xs text-accent">
+                Capturing… {secondsLeft} s left
+              </p>
+            )}
+            {captureNote && !capturing && (
+              <p className="mt-2 text-xs leading-relaxed text-muted">{captureNote}</p>
+            )}
+            {capturedNames.length > 0 && (
+              <details className="mt-2 text-xs text-subtle">
+                <summary className="cursor-pointer select-none">
+                  Show process names ({capturedNames.length})
+                </summary>
+                <ul className="mt-1 space-y-0.5">
+                  {capturedNames.map((n) => (
+                    <li key={n.pid} className="font-mono">
+                      {n.pid} → {n.name} (pid {n.real_pid})
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </Panel>
 
           <Panel title="Arbiter thresholds" description="Tunable at runtime (FR10)">

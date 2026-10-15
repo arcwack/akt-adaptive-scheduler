@@ -133,6 +133,33 @@ export interface RandomBenchmarkResult {
   adaptive_best: Record<string, number>
 }
 
+export interface TradeoffPoint {
+  quantum: number | null
+  dynamic: boolean
+  context_switches: number
+  avg_waiting: number
+  avg_response: number
+  avg_turnaround: number
+}
+
+export interface CapturedProcess {
+  pid: string
+  arrival: number
+  burst: number
+  priority: number
+  real_pid: number
+  name: string
+}
+
+export interface CaptureResult {
+  processes: CapturedProcess[]
+  count: number
+  window: number
+  burst_scale: number
+  arrival_scale: number
+  message: string | null
+}
+
 export const ALGORITHMS: { key: string; label: string }[] = [
   { key: 'adaptive', label: 'Adaptive' },
   { key: 'fcfs', label: 'FCFS' },

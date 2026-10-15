@@ -10,18 +10,21 @@ from fastapi.staticfiles import StaticFiles
 
 from engine.algorithms import ALGORITHM_LABELS, FIXED_ALGORITHMS
 from engine.benchmark import matrix_benchmark, random_benchmark
+from engine.capture import capture_workload
 from engine.config import SimConfig
-from engine.experiments import cooldown_sweep, quantum_experiment
+from engine.experiments import cooldown_sweep, quantum_experiment, quantum_tradeoff
 from engine.models import Process
 from engine.presets import serialize_presets
 from engine.simulator import simulate, simulate_adaptive
 
 from .schemas import (
+    CaptureRequest,
     MatrixBenchmarkRequest,
     QuantumRequest,
     RandomBenchmarkRequest,
     RunRequest,
     SweepRequest,
+    TradeoffRequest,
 )
 from .serializers import serialize_result
 
@@ -118,6 +121,26 @@ def quantum_sweep(request: QuantumRequest) -> dict:
     config = _to_config(request)
     processes = _to_processes(request)
     return {"rows": quantum_experiment(processes, config, request.quanta)}
+
+
+@router.post(
+    "/quantum-tradeoff",
+    tags=["Experiments"],
+    summary="Round Robin context switches vs waiting across quanta 1..16 + dynamic",
+)
+def quantum_tradeoff_endpoint(request: TradeoffRequest) -> dict:
+    config = _to_config(request)
+    processes = _to_processes(request)
+    return {"points": quantum_tradeoff(processes, config)}
+
+
+@router.post(
+    "/capture",
+    tags=["Workloads"],
+    summary="Capture a workload from this machine's running processes",
+)
+def capture(request: CaptureRequest) -> dict:
+    return capture_workload(request.window, request.top)
 
 
 @router.post(

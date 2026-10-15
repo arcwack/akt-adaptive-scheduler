@@ -10,6 +10,7 @@ from .simulator import simulate, simulate_adaptive
 
 DEFAULT_COOLDOWNS = [0, 4, 8, 16]
 DEFAULT_QUANTA = [2, 4, 8]
+TRADEOFF_QUANTA = list(range(1, 17))
 
 
 def _metrics_row(metrics) -> dict:
@@ -77,3 +78,43 @@ def quantum_experiment(
         }
     )
     return rows
+
+
+def quantum_tradeoff(
+    processes: list[Process],
+    config: SimConfig | None = None,
+    quanta: list[int] | None = None,
+) -> list[dict]:
+    """Round Robin at every fixed quantum 1..16 plus dynamic.
+
+    Each point is (context switches, waiting/response/turnaround) so the
+    trade-off can be plotted with context switches on x.
+    """
+    base = config or SimConfig()
+    values = quanta if quanta is not None else list(TRADEOFF_QUANTA)
+
+    points: list[dict] = []
+    for value in values:
+        metrics = simulate(processes, "rr", replace(base, fixed_quantum=value)).metrics
+        points.append(
+            {
+                "quantum": value,
+                "dynamic": False,
+                "context_switches": metrics.context_switches,
+                "avg_waiting": metrics.avg_waiting,
+                "avg_response": metrics.avg_response,
+                "avg_turnaround": metrics.avg_turnaround,
+            }
+        )
+    dynamic = simulate(processes, "rr", replace(base, fixed_quantum=None)).metrics
+    points.append(
+        {
+            "quantum": None,
+            "dynamic": True,
+            "context_switches": dynamic.context_switches,
+            "avg_waiting": dynamic.avg_waiting,
+            "avg_response": dynamic.avg_response,
+            "avg_turnaround": dynamic.avg_turnaround,
+        }
+    )
+    return points

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from engine.config import SimConfig
-from engine.experiments import cooldown_sweep, quantum_experiment
+from engine.experiments import cooldown_sweep, quantum_experiment, quantum_tradeoff
 from engine.models import Process
 from engine.policy import PolicyDecision
 from engine.simulator import Simulator, simulate, simulate_adaptive
@@ -71,3 +71,11 @@ def test_round_robin_records_rounds():
 
     fixed = simulate(workload, "rr", SimConfig(fixed_quantum=4))
     assert all(row["quantum"] == 4 and row["dynamic"] is False for row in fixed.rounds)
+
+
+def test_quantum_tradeoff_shape():
+    workload = [Process("P1", 0, 6, 3), Process("P2", 1, 2, 3), Process("P3", 2, 8, 3)]
+    points = quantum_tradeoff(workload, SimConfig())
+    assert [p["quantum"] for p in points] == list(range(1, 17)) + [None]
+    assert points[-1]["dynamic"] is True
+    assert all(p["context_switches"] >= 0 and p["avg_waiting"] >= 0 for p in points)
